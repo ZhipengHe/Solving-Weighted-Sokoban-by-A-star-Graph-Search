@@ -49,23 +49,27 @@ def my_team():
 #  Global variables
 
 #  Cell mark definitions
-mark_space = ' '
+mark = {
+    "space": " ",
+    "wall": "#",
+    "box": "$",
+    "target": ".",
+    "worker": "@",
+    "worker_target": "!",
+    "box_target": "*",
+    "taboo": "X",
+    "removed": ['$', '@'], 
+    "three_targets": ['.', '*', '!']
+    }
 
-mark_box = '$'
-mark_player = '@'
+#  Direction definitions - Up and Down is reversed from Cartesian coordinate
+direction = {
+    "Up": (0,-1), 
+    "Down": (0,1), 
+    "Left": (-1,0), 
+    "Right": (1,0)
+    }
 
-mark_target = '.'
-mark_target_box = '*'
-mark_target_player = '!'
-
-mark_wall = '#'
-mark_taboo = 'X'
-
-#  Direction definitions
-tuple_up = (0,1)
-tuple_down = (0,-1)
-tuple_left = (-1,0)
-tuple_right = (1,0)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -78,7 +82,7 @@ def taboo_cells(warehouse):
     Cells outside the warehouse are not taboo. It is a fail to tag one as taboo.
     
     When determining the taboo cells, you must ignore all the existing boxes, 
-    only consider the walls and the target  cells.  
+    only consider the walls and the target cells.  
     Use only the following rules to determine the taboo cells;
      Rule 1: if a cell is a corner and not a target, then it is a taboo cell.
      Rule 2: all the cells between two corners along a wall are taboo if none of 
@@ -94,98 +98,97 @@ def taboo_cells(warehouse):
        and the boxes.  
     '''
 
-    def _corner_checker(warehouse_list, x, y, rule_2=False):
+    def _check_corner(walls, index):
+        """Check if a cell is a corner of the warehouse by examining if
+        the Up, Down, Left and Right sides cell is a wall mark.
+        For tuple (x,y), x -> column index, y -> row index
 
-        wall_x_axis = 0
-        wall_y_axis = 0
-        # check for walls above and below
-        for (m, n) in [tuple_up, tuple_down]:
-            if warehouse_list[y + n][x + m] == mark_wall:
-                wall_y_axis += 1
-        # check for walls left and right
-        for (m, n) in [tuple_left, tuple_right]:
-            if warehouse_list[y + n][x + m] == mark_wall:
-                wall_x_axis += 1
+        Args:
+            walls (list): A list of tuple (x,y) for all wall cells
+            index (tuple): A tuple (x,y) for the index of a element in a 2d-array 
 
-        if rule_2: 
-            return wall_x_axis or wall_y_axis
-        else:
-            return wall_x_axis and wall_y_axis
+        Returns:
+            Boolen: Corner -> True, not Corner -> False
+        """
 
-    
-    # wall_x_axis and wall_y_axis
-    
-    def _taboo_rule_1(warehouse_list):
+        # Check if up and left cells are wall marks
+        if (index[0] + direction["Up"][0], index[1] + direction["Up"][1]) in walls \
+            and (index[0] + direction["Left"][0], index[1] + direction["Left"][1]) in walls:
+            return True
 
-        # loop axis-y, by row
-        for y in range(len(warehouse_list)): 
-            # assuming the first square of each row is out of the wall
-            outwall = 1 
-            # loop axis-x, by column
-            for x in range(len(warehouse_list[y])): 
-                # keep looking the first wall mark in the row
-                if outwall and warehouse_list[y][x] == mark_wall:
-                    outwall = 0     # set the outwall to 0 when find wall mark
-                elif not outwall: 
-                    # check if all the cells to the right of current cell are empty
-                    # means we are now outside the warehouse
-                    if all([mark == mark_space for mark in warehouse_list[y][x:]]):
+        # Check if up and right cells are wall marks
+        if (index[0] + direction["Up"][0], index[1] + direction["Up"][1]) in walls \
+            and (index[0] + direction["Right"][0], index[1] + direction["Right"][1]) in walls:
+            return True
+        
+        # Check if down and left cells are wall marks
+        if (index[0] + direction["Down"][0], index[1] + direction["Down"][1]) in walls \
+            and (index[0] + direction["Left"][0], index[1] + direction["Left"][1]) in walls:
+            return True
+
+        # Check if down and right cells are wall marks
+        if (index[0] + direction["Down"][0], index[1] + direction["Down"][1]) in walls \
+            and (index[0] + direction["Right"][0], index[1] + direction["Right"][1]) in walls:
+            return True
+        
+        # otherwise, return it is not a corner
+        return False
+
+    def _rule_1():
+
+        rule_1_taboo = []
+
+        for row_index in range(warehouse.nrows):
+            out_wall = True
+            for col_index in range(warehouse.ncols):
+                matrix_index = (col_index, row_index)
+                square = warehouse_2d[row_index][col_index]
+
+                if out_wall and square == mark["wall"]:
+                    out_wall = False
+                
+                elif not out_wall:
+                    if all([cell == mark["space"] for cell in warehouse_2d[row_index][col_index:]]):
                         break
-                    if warehouse_list[y][x]  == mark_space and _corner_checker(warehouse_list, x, y): 
-                        # if this cell is corner
-                        warehouse_list[y][x]  = mark_taboo
-        return warehouse_list
 
-    def _taboo_rule_2(warehouse_list):
+                    if square == mark["space"]:
+                        if _check_corner(walls, matrix_index):
+                            warehouse_2d[row_index][col_index] = mark["taboo"]
+                            rule_1_taboo.append(matrix_index)
+        return rule_1_taboo
 
-        for y in range(len(warehouse_list)):
-            for x in range(len(warehouse_list[y])):
-                if warehouse_list[y][x] == mark_taboo and _corner_checker(warehouse_list, x, y):
-                    row = warehouse_list[y][x + 1:]
-                    col = [row[x] for row in warehouse_list[y + 1:][:]]
-                    # fill in taboo_cells in row to the right of corner taboo cell
-                    for x2 in range(len(row)):
-                        if row[x2] in [mark_target, mark_target_box, mark_target_player, mark_wall]:
-                            break
-                        if row[x2] == mark_taboo and _corner_checker(warehouse_list, x2 + x + 1, y):
-                            if all([_corner_checker(warehouse_list, x3, y, rule_2=True)
-                                    for x3 in range(x + 1, x2 + x + 1)]):
-                                for x4 in range(x + 1, x2 + x + 1):
-                                    warehouse_list[y][x4] = 'X'
-                    # fill in taboo_cells in column moving down from corner taboo
-                    # cell
-                    for y2 in range(len(col)):
-                        if col[y2] in [mark_target, mark_target_box, mark_target_player, mark_wall]:
-                            break
-                        if col[y2] == mark_taboo and _corner_checker(warehouse_list, x, y2 + y + 1):
-                            if all([_corner_checker(warehouse_list, x, y3, rule_2=True)
-                                    for y3 in range(y + 1, y2 + y + 1)]):
-                                for y4 in range(y + 1, y2 + y + 1):
-                                    warehouse_list[y4][x] = 'X'
+    def _rule_2(rule_1_taboo):
+        for row_index in range(warehouse.nrows):
+            out_wall = True
+            for col_index in range(warehouse.ncols):
+                matrix_index = (col_index, row_index)
+                square = warehouse_2d[row_index][col_index]
+        
 
-        return warehouse_list
+    walls = warehouse.walls
 
     # convert the warehouse to a string
-    warehouse_string = str(warehouse)  # call __str__ method in class Warehouse
+    warehouse_str = str(warehouse)  # call __str__ method in class Warehouse
 
-    # replace the cell marks for box and player with free space,
+    # replace the cell marks for box and player with whitespace,
     # only leave wall and target cell marks
-    for mark in [mark_box, mark_player]:
-        warehouse_string = warehouse_string.replace(mark, mark_space)
+    for cell in mark["removed"]:
+        warehouse_str = warehouse_str.replace(cell, " ")
     
-    # split the warehouse string by line breaks to a list
-    warehouse_list = [list(line) for line in warehouse_string.split('\n')]
+    # split the warehouse string by line breaks to a 2D matrix
+    warehouse_2d = [list(line) for line in warehouse_str.splitlines()]
 
-    warehouse_list = _taboo_rule_1(warehouse_list)
-    warehouse_list = _taboo_rule_2(warehouse_list)
+    rule_1_taboo_index = _rule_1()
+    _rule_2(rule_1_taboo_index)
 
-    warehouse_string = '\n'.join([''.join(line) for line in warehouse_list])
+    # join the sokoban string list to a full string by line breaks
+    warehouse_str = '\n'.join(["".join(row) for row in warehouse_2d])
 
+    # Replace all three target marks with white space
+    for cell in mark["three_targets"]:
+        warehouse_str = warehouse_str.replace(cell, " ")
 
-    for mark in [mark_target, mark_target_player, mark_target_box]:
-        warehouse_string = warehouse_string.replace(mark, mark_space)
-
-    return warehouse_string
+    return warehouse_str
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -219,10 +222,6 @@ class SokobanPuzzle(search.Problem):
     def actions(self, state):
         """
         Return the list of actions that can be executed in the given state.
-        
-        As specified in the header comment of this class, the attributes
-        'self.allow_taboo_push' and 'self.macro' should be tested to determine
-        what type of list of actions is to be returned.
         """
         raise NotImplementedError
 
