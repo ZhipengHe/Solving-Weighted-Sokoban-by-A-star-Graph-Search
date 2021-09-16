@@ -72,6 +72,64 @@ direction = {
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+def _move_in_2d_coordinate(loc, delta):
+
+    return (loc[0] + delta[0], loc[1] + delta[1])
+
+def _check_wall(index, walls):
+
+    return _move_in_2d_coordinate(index, direction["Up"]) in walls \
+        or _move_in_2d_coordinate(index, direction["Down"]) in walls \
+        or _move_in_2d_coordinate(index, direction["Left"]) in walls \
+        or _move_in_2d_coordinate(index, direction["Right"]) in walls 
+
+def _return_surrounding_wall(index, walls):
+
+    surrounding_walls = []
+
+    for key in list(direction.keys()):
+        surrounding_location = _move_in_2d_coordinate(index, direction.get(key))
+        if surrounding_location in walls:
+            surrounding_walls.append(surrounding_location)
+
+    return surrounding_walls
+
+def _check_corner(index, walls):
+    """Check if a cell is a corner of the warehouse by examining if
+    the Up, Down, Left and Right sides cell is a wall mark.
+    For tuple (x,y), x -> column index, y -> row index
+
+    Args:
+        index (tuple): A tuple (x,y) for the index of a element in a 2d-array 
+
+    Returns:
+        Boolen: Corner -> True, not Corner -> False
+    """
+
+    # Check if up and left cells are wall marks
+    if _move_in_2d_coordinate(index, direction["Up"]) in walls \
+        and _move_in_2d_coordinate(index, direction["Left"]) in walls:
+        return True
+
+    # Check if up and right cells are wall marks
+    if _move_in_2d_coordinate(index, direction["Up"]) in walls \
+        and _move_in_2d_coordinate(index, direction["Right"]) in walls:
+        return True
+    
+    # Check if down and left cells are wall marks
+    if _move_in_2d_coordinate(index, direction["Down"]) in walls \
+        and _move_in_2d_coordinate(index, direction["Left"]) in walls:
+        return True
+
+    # Check if down and right cells are wall marks
+    if _move_in_2d_coordinate(index, direction["Down"]) in walls \
+        and _move_in_2d_coordinate(index, direction["Right"]) in walls:
+        return True
+    
+    # otherwise, return it is not a corner
+    return False
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 
 def taboo_cells(warehouse):
     '''  
@@ -98,46 +156,7 @@ def taboo_cells(warehouse):
        and the boxes.  
     '''
 
-    def _check_corner(walls, index):
-        """Check if a cell is a corner of the warehouse by examining if
-        the Up, Down, Left and Right sides cell is a wall mark.
-        For tuple (x,y), x -> column index, y -> row index
-
-        Args:
-            walls (list): A list of tuple (x,y) for all wall cells
-            index (tuple): A tuple (x,y) for the index of a element in a 2d-array 
-
-        Returns:
-            Boolen: Corner -> True, not Corner -> False
-        """
-
-        # Check if up and left cells are wall marks
-        if (index[0] + direction["Up"][0], index[1] + direction["Up"][1]) in walls \
-            and (index[0] + direction["Left"][0], index[1] + direction["Left"][1]) in walls:
-            return True
-
-        # Check if up and right cells are wall marks
-        if (index[0] + direction["Up"][0], index[1] + direction["Up"][1]) in walls \
-            and (index[0] + direction["Right"][0], index[1] + direction["Right"][1]) in walls:
-            return True
-        
-        # Check if down and left cells are wall marks
-        if (index[0] + direction["Down"][0], index[1] + direction["Down"][1]) in walls \
-            and (index[0] + direction["Left"][0], index[1] + direction["Left"][1]) in walls:
-            return True
-
-        # Check if down and right cells are wall marks
-        if (index[0] + direction["Down"][0], index[1] + direction["Down"][1]) in walls \
-            and (index[0] + direction["Right"][0], index[1] + direction["Right"][1]) in walls:
-            return True
-        
-        # otherwise, return it is not a corner
-        return False
-
     def _rule_1():
-
-        rule_1_taboo = []
-
         for row_index in range(warehouse.nrows):
             out_wall = True
             for col_index in range(warehouse.ncols):
@@ -152,18 +171,37 @@ def taboo_cells(warehouse):
                         break
 
                     if square == mark["space"]:
-                        if _check_corner(walls, matrix_index):
+                        if _check_corner(matrix_index, walls):
                             warehouse_2d[row_index][col_index] = mark["taboo"]
-                            rule_1_taboo.append(matrix_index)
-        return rule_1_taboo
 
-    def _rule_2(rule_1_taboo):
+    def _rule_2():
         for row_index in range(warehouse.nrows):
-            out_wall = True
             for col_index in range(warehouse.ncols):
                 matrix_index = (col_index, row_index)
                 square = warehouse_2d[row_index][col_index]
-        
+
+                if square == mark["taboo"] and _check_corner(matrix_index, walls):
+                    rest_of_this_row = warehouse_2d[row_index][col_index+1:]
+                    rest_of_this_col = [row[col_index] for row in warehouse_2d[row_index+1:]]
+
+                    for idx, val in enumerate(rest_of_this_row):
+                        if val == mark["wall"] or val in mark["three_targets"]:
+                            break
+
+                        if val == mark["taboo"] and _check_corner((col_index+idx+1, row_index), walls):
+                            if all([_check_wall((loc, row_index), walls) for loc in range(col_index+1, col_index+idx+1)]):
+                                for loc in range(col_index+1, col_index+idx+1):
+                                    warehouse_2d[row_index][loc] = mark["taboo"]
+                    
+                    for idx, val in enumerate(rest_of_this_col):
+                        if val == mark["wall"] or val in mark["three_targets"]:
+                            break
+
+                        if val == mark["taboo"] and _check_corner((col_index, row_index+idx+1), walls):
+                            if all([_check_wall((col_index, loc), walls) for loc in range(row_index+1, row_index+idx+1)]):
+                                for loc in range(row_index+1, row_index+idx+1):
+                                    warehouse_2d[loc][col_index] = mark["taboo"]
+
 
     walls = warehouse.walls
 
@@ -178,8 +216,8 @@ def taboo_cells(warehouse):
     # split the warehouse string by line breaks to a 2D matrix
     warehouse_2d = [list(line) for line in warehouse_str.splitlines()]
 
-    rule_1_taboo_index = _rule_1()
-    _rule_2(rule_1_taboo_index)
+    _rule_1()
+    _rule_2()
 
     # join the sokoban string list to a full string by line breaks
     warehouse_str = '\n'.join(["".join(row) for row in warehouse_2d])
@@ -192,6 +230,12 @@ def taboo_cells(warehouse):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Bugs:
+# 1. Not consider the weights is 0, such as warehouse_01
+# 2. Not consider already finished box, such as warehouse_01
+# 3. Running time too slow
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class SokobanPuzzle(search.Problem):
     '''
@@ -204,26 +248,125 @@ class SokobanPuzzle(search.Problem):
     
     '''
     
-    #
-    #         "INSERT YOUR CODE HERE"
-    #
-    #     Revisit the sliding puzzle and the pancake puzzle for inspiration!
-    #
-    #     Note that you will need to add several functions to 
-    #     complete this class. For example, a 'result' method is needed
-    #     to satisfy the interface of 'search.Problem'.
-    #
-    #     You are allowed (and encouraged) to use auxiliary functions and classes
-
-    
     def __init__(self, warehouse):
-        raise NotImplementedError()
+
+        self.warehouse = warehouse
+        self.initial = warehouse.worker, tuple(warehouse.boxes)
+        # self.taboo = [sokoban.find_2D_iterator(taboo_cells(self.warehouse).splitlines(), mark["taboo"])]
+        self.weights = warehouse.weights
+        self.boxes = warehouse.boxes
+        self.goal = warehouse.targets
+        self.walls = warehouse.walls
+
 
     def actions(self, state):
         """
         Return the list of actions that can be executed in the given state.
         """
-        raise NotImplementedError
+       
+        worker_state = state[0]
+        boxes_state = list(state[1])
+        actions = []
+        
+
+        for key in direction.keys():
+            next_worker_state = _move_in_2d_coordinate(worker_state, direction.get(key))
+            
+            if next_worker_state not in _return_surrounding_wall(worker_state, self.walls):
+
+                if next_worker_state in boxes_state:
+                    next_box_state = _move_in_2d_coordinate(next_worker_state, direction.get(key))
+                    if next_box_state not in _return_surrounding_wall(worker_state, self.walls):
+                        if next_box_state not in boxes_state :
+                            actions.append(key)
+                        else:
+                            break                  
+                else:
+                    actions.append(key)
+        return actions
+    
+
+    def result(self, state, action):
+        """Return the state that results from executing the given
+        action in the given state. The action must be one of
+        self.actions(state)."""
+
+        worker_state = state[0]
+        boxes_state = list(state[1])
+
+        if action in direction.keys():
+            next_worker_state =  _move_in_2d_coordinate(worker_state, direction.get(action))
+
+            if next_worker_state == boxes_state or next_worker_state in boxes_state:
+                next_box_state =  _move_in_2d_coordinate(next_worker_state, direction.get(action))
+
+                box_index = boxes_state.index(next_worker_state)
+
+                boxes_state[box_index] = next_box_state
+            
+            worker_state = next_worker_state
+
+        return worker_state, tuple(boxes_state)
+
+
+
+
+    def goal_test(self, state):
+        """Return True if the state is a goal. The default method compares the
+        state to self.goal, as specified in the constructor. Override this
+        method if checking against a single self.goal is not enough."""
+
+        boxes = state[1]
+        for box in boxes:
+            if box not in self.goal:
+                return False
+        return True
+
+    def path_cost(self, c, state1, action, state2):
+        """Return the cost of a solution path that arrives at state2 from
+        state1 via action, assuming cost c to get up to state1. If the problem
+        is such that the path doesn't matter, this function will only look at
+        state2.  If the path does matter, it will consider c and maybe state1
+        and action. The default method costs 1 for every step in the path.
+        
+        Overide the default method """
+        if state1[1] != state2[1]:
+            box_index = state1[1].index(state2[0])
+            box_cost = self.weights[box_index]
+            return c + box_cost + 1
+           
+        return c + 1  # Elementary cost is one
+
+    def h(self, node):
+        '''
+        Used for the weighted solver
+        Heurtistic - Uses Manhattan Distance
+        To make the heuristic admissible it should be optimisitc. It should
+        underestimate the cost from the current state to the goal state.
+        Possible option: Use the sum of the manhattan distance of each box 
+        to it's nearest target.
+        returns a int value which is an estimate of the puzzles distance to
+        the goal state.
+        '''
+        boxes = list(node.state[1])
+        targets = self.goal
+        weights = self.weights
+
+        manhattan_distance = []
+        for idx, box in enumerate(boxes):
+            weight_list = []
+            for target in targets:
+                weight_list.append( (abs(box[0]-target[0]) + abs(box[1]-target[1])) * weights[idx] ) # need to change this
+            manhattan_distance.append(weight_list)
+
+        heuristic = 0
+        for distance in manhattan_distance:
+            heuristic += min(distance)
+        
+        return heuristic
+
+
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -250,10 +393,35 @@ def check_elem_action_seq(warehouse, action_seq):
                the sequence of actions.  This must be the same string as the
                string returned by the method  Warehouse.__str__()
     '''
+
+    for action in action_seq:
+        current_location = warehouse.worker
+        if action in list(direction.keys()):
+            # location of worker after actions
+            post_worker_col = current_location[0] + direction.get(action)[0]
+            post_worker_row = current_location[1] + direction.get(action)[1]
+        
+            if (post_worker_col, post_worker_row) in warehouse.walls:
+                return "Impossible"
+                
+            elif (post_worker_col, post_worker_row) in warehouse.boxes:
+                # coords of box after actions
+                post_box_col = post_worker_col + direction.get(action)[0] 
+                post_box_row = post_worker_row + direction.get(action)[1]
+                    
+                # if moved box is wall/ another box it's a wrong sequence
+                if (post_box_col, post_box_row) in warehouse.walls or (post_box_col,post_box_row) in warehouse.boxes:                    
+                    return "Impossible"
+                    
+                else:
+                    warehouse.boxes.remove(post_worker_col, post_worker_row)
+                    warehouse.boxes.append(post_box_col, post_box_row)
+                    warehouse.worker = (post_worker_col, post_worker_row)
+                        
+            else:
+                warehouse.worker = (post_worker_col, post_worker_row)
     
-    ##         "INSERT YOUR CODE HERE"
-    
-    raise NotImplementedError()
+    return warehouse.__str__()
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -282,7 +450,16 @@ def solve_weighted_sokoban(warehouse):
 
     '''
     
-    raise NotImplementedError()
+    my_sokoban = SokobanPuzzle(warehouse)
+
+    solution = search.astar_graph_search(my_sokoban)
+    if solution is None:
+        return'Impossible'
+    else: 
+        S = solution.solution()
+        C = solution.path_cost
+    return S, C
+
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
