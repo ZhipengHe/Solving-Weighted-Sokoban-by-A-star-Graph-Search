@@ -72,6 +72,10 @@ direction = {
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# auxiliary class definitions
+
+# auxiliary function definitions
+
 def _move_in_2d_coordinate(loc, delta):
     """
     A internal function for calculating the final location in the 2D coordinate space
@@ -139,6 +143,12 @@ def _check_corner(index, walls):
     
     # otherwise, return it is not a corner
     return False
+
+def _manhattan_distance(loc1, loc2):
+
+    return (abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1]))
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -315,7 +325,6 @@ class SokobanPuzzle(search.Problem):
         self.goal = warehouse.targets
         self.walls = warehouse.walls
 
-
     def actions(self, state):
         """
         Return the list of actions that can be executed in the given state.
@@ -333,20 +342,22 @@ class SokobanPuzzle(search.Problem):
             next_worker_state = _move_in_2d_coordinate(worker_state, direction.get(key))
 
             # next potential state of worker should not be walls
-            if next_worker_state not in self.walls:
-                # if worker push a box
-                if next_worker_state in boxes_state:
-                    # next potential state of pushed box
-                    next_box_state = _move_in_2d_coordinate(next_worker_state, direction.get(key))
-                    # next potential state of pushed box should not be wall and taboo cells
-                    if next_box_state not in self.walls and \
-                        next_box_state not in self.taboo:
-                        # if next potential state of pushed box is not a box, add this action to sequence
-                        # otherwise, 
-                        if next_box_state not in boxes_state :
-                            actions.append(key)    
-                else: # not push box and add this action to sequence
-                    actions.append(key)
+            if next_worker_state in self.walls:
+                continue
+            # if worker push a box
+            if next_worker_state in boxes_state:
+                # next potential state of pushed box
+                next_box_state = _move_in_2d_coordinate(next_worker_state, direction.get(key))
+                # next potential state of pushed box should not be wall and taboo cells
+                if next_box_state not in self.walls and \
+                    next_box_state not in self.taboo and \
+                    next_box_state not in boxes_state:
+                    # if next potential state of pushed box is not a box, add this action to sequence
+                    # if next_box_state not in boxes_state:
+                        actions.append(key)
+                                
+            else: # not push box and add this action to sequence
+                actions.append(key)
 
         return actions
     
@@ -360,21 +371,19 @@ class SokobanPuzzle(search.Problem):
         worker_state = state[0]
         boxes_state = list(state[1])
 
-        # if action is in one of four directions
-        if action in direction.keys():
-            # assume and calculate the next worker state
-            next_worker_state =  _move_in_2d_coordinate(worker_state, direction.get(action))
+        # assume and calculate the next worker state
+        next_worker_state =  _move_in_2d_coordinate(worker_state, direction.get(action))
 
-            # check if the next worker state has a box on it
-            if next_worker_state in boxes_state:
-                # if so, calculate the new box state 
-                next_box_state =  _move_in_2d_coordinate(next_worker_state, direction.get(action))
-                # push this box to new state and update 
-                box_index = boxes_state.index(next_worker_state)
-                boxes_state[box_index] = next_box_state
-            
-            # move worker to next state
-            worker_state = next_worker_state
+        # check if the next worker state has a box on it
+        if next_worker_state in boxes_state:
+            # if so, calculate the new box state 
+            next_box_state =  _move_in_2d_coordinate(next_worker_state, direction.get(action))
+            # push this box to new state and update 
+            box_index = boxes_state.index(next_worker_state)
+            boxes_state[box_index] = next_box_state
+        
+        # move worker to next state
+        worker_state = next_worker_state
 
         # return the result state combined by work state and box state
         return worker_state, tuple(boxes_state)
@@ -386,13 +395,8 @@ class SokobanPuzzle(search.Problem):
         Overide the default method
         If all the boxes is in the target, return True
         """
-        # make a copy of all boxes state
-        boxes = state[1]
-        # check if all boxes in target
-        for box in boxes:
-            if box not in self.goal:
-                return False
-        return True
+        return set(self.goal) == set(state[1])
+
 
     def path_cost(self, c, state1, action, state2):
         """
@@ -404,11 +408,15 @@ class SokobanPuzzle(search.Problem):
         If box is pushed, return the cost of pushing the weighted box and walking.
         If box is not pushed, return the cost of walking only.
         """
-        if state1[1] != state2[1]:
+
+        if state1[1] != state2[1]: # box is pushed
             box_index = state1[1].index(state2[0])
             box_cost = self.weights[box_index]
             return c + box_cost + 1
-        return c + 1
+        else: # box is pushed
+            return c + 1
+
+        
 
     def h(self, n):
         '''
@@ -416,25 +424,21 @@ class SokobanPuzzle(search.Problem):
         
         The sum of the manhattan distance of each box to it's nearest target.
         '''
+        # worker = n.state[0]
         boxes = list(n.state[1])
         targets = self.goal
         weights = self.weights
-
-        manhattan_distance = []
         heuristic = 0
 
         for idx, box in enumerate(boxes):
-            weight_list = []
+            min_distance = float('inf')
+            # worker_distance = _manhattan_distance(box,worker)
             for target in targets:
-                weight_list.append( 
-                    (abs(box[0]-target[0]) + abs(box[1]-target[1])) * (weights[idx] + 1) 
-                    )
-            manhattan_distance.append(weight_list)
-
-        heuristic = 0
-        for distance in manhattan_distance:
-            heuristic += min(distance)
-        
+                distance = _manhattan_distance(box,target) * (weights[idx] + 1)
+                if min_distance > distance:
+                    min_distance = distance
+            # heuristic += worker_distance
+            heuristic += min_distance
         return heuristic
 
 
@@ -534,8 +538,4 @@ def solve_weighted_sokoban(warehouse):
         C = solution.path_cost
 
     return S, C
-
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
