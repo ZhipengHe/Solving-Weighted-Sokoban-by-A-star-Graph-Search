@@ -72,7 +72,6 @@ direction = {
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# auxiliary class definitions
 
 # auxiliary function definitions
 
@@ -145,6 +144,16 @@ def _check_corner(index, walls):
     return False
 
 def _manhattan_distance(loc1, loc2):
+    """Calculate the manhattan distance between two points loc1 and loc2.
+    M=|q1−p1|+|q2−p2|
+
+    Args: 
+        loc1 (tuple): the position (p1,p2)
+        loc1 (tuple): the position (q1,q2)
+
+    Returns:
+        int: the value of the manhattan distance 
+    """
 
     return (abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1]))
 
@@ -322,6 +331,7 @@ class SokobanPuzzle(search.Problem):
         self.taboo = [sokoban.find_2D_iterator(taboo_cells(self.warehouse).splitlines(), mark["taboo"])]
         self.weights = warehouse.weights
         self.boxes = warehouse.boxes
+        self.cache = {}
         self.goal = warehouse.targets
         self.walls = warehouse.walls
 
@@ -381,12 +391,9 @@ class SokobanPuzzle(search.Problem):
             # push this box to new state and update 
             box_index = boxes_state.index(next_worker_state)
             boxes_state[box_index] = next_box_state
-        
-        # move worker to next state
-        worker_state = next_worker_state
 
         # return the result state combined by work state and box state
-        return worker_state, tuple(boxes_state)
+        return next_worker_state, tuple(boxes_state)
 
     def goal_test(self, state):
         """
@@ -422,23 +429,28 @@ class SokobanPuzzle(search.Problem):
         '''
         The value of the heurtistic by Taxicab Geometry (Manhattan Distance).
         
-        The sum of the manhattan distance of each box to it's nearest target.
+        The sum of the manhattan distance of 
+            - each box to it's nearest target
+            - worker to each box.
         '''
-        # worker = n.state[0]
+        worker = n.state[0]
         boxes = list(n.state[1])
         targets = self.goal
         weights = self.weights
         heuristic = 0
 
+
+        # Simple Lower Bound algorithm
         for idx, box in enumerate(boxes):
             min_distance = float('inf')
-            # worker_distance = _manhattan_distance(box,worker)
+            worker_distance = _manhattan_distance(box,worker)
             for target in targets:
                 distance = _manhattan_distance(box,target) * (weights[idx] + 1)
                 if min_distance > distance:
                     min_distance = distance
-            # heuristic += worker_distance
+            heuristic += worker_distance
             heuristic += min_distance
+
         return heuristic
 
 
@@ -539,3 +551,205 @@ def solve_weighted_sokoban(warehouse):
 
     return S, C
 
+
+#---------------------------------------------------------
+#           TEST ONLY
+#           These codes are
+#           for test only
+#---------------------------------------------------------
+
+import os
+import time
+from multiprocessing import Process
+import csv
+
+# ONLY FOR TEST
+def createFolder(directory):
+    """
+    Create a directory if don't exist
+    """
+    try:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    except OSError:
+        print ('Error: creating directory ' + directory)
+
+# ONLY FOR TEST
+def warehouse_solution(warehouse_problem):
+    """
+    Loop all warehouses in the test folder, and output the results to txt and csv file
+    """
+    head, problem_file = os.path.split(warehouse_problem)
+    t0 = time.time()
+    wh = sokoban.Warehouse()
+    wh.load_warehouse(warehouse_problem)
+    solution, cost = solve_weighted_sokoban(wh)
+    t1 = time.time()
+
+    with open("./Warehouse_solutions/"+problem_file, "w+") as file:
+        file.write("The solution for warehouse "+problem_file+" is \n {}\nThe cost is {}\n".format(solution, cost))
+        file.write('It took {:.6f} seconds'.format(t1-t0))
+        file.close()
+
+    with open("./Warehouse_solutions/overall.csv", "a+") as file:
+        file.write(problem_file+", {}, {}\n".format(t1-t0, cost))
+        file.close()
+
+# ONLY FOR TEST
+def test_taboo_cells(filename, expected_answer):
+    """Test for taboo_cells()
+    get from sanity_check.py
+    """
+
+    wh = sokoban.Warehouse()
+    wh.load_warehouse(filename)
+    answer = taboo_cells(wh)
+    fcn = test_taboo_cells    
+    print('<<  Testing {} >>'.format(fcn.__name__))
+    if answer==expected_answer:
+        print(fcn.__name__, ' passed!  :-)\n')
+    else:
+        print(fcn.__name__, ' failed!  :-(\n')
+        print('Expected ');print(expected_answer)
+        print('But, received ');print(answer)
+
+# ONLY FOR TEST
+def test_check_elem_action_seq():
+    """
+    Test for check_elem_action_seq()
+    Testing for some case only
+    get from sanity_check.py
+    """
+    wh = sokoban.Warehouse()
+    wh.load_warehouse("./warehouses/warehouse_01.txt")
+    # first test
+    answer = check_elem_action_seq(wh, ['Right', 'Right','Down'])
+    expected_answer = '####  \n# .#  \n#  ###\n#*   #\n#  $@#\n#  ###\n####  '
+    print('<<  check_elem_action_seq, test 1>>')
+    if answer==expected_answer:
+        print('Test 1 passed!  :-)\n')
+    else:
+        print('Test 1 failed!  :-(\n')
+        print('Expected ');print(expected_answer)
+        print('But, received ');print(answer)
+    # second test
+    answer = check_elem_action_seq(wh, ['Right', 'Right','Right'])
+    expected_answer = 'Impossible'
+    print('<<  check_elem_action_seq, test 2>>')
+    if answer==expected_answer:
+        print('Test 2 passed!  :-)\n')
+    else:
+        print('Test 2 failed!  :-(\n')
+        print('Expected ');print(expected_answer)
+        print('But, received ');print(answer)
+
+
+# ONLY FOR TEST
+def test_solve_weighted_sokoban(filename, expected_answer, expected_cost):
+    """
+    Test for solve_weighted_sokoban()
+    only for some cases
+    get from sanity_check.py
+    """
+    wh = sokoban.Warehouse()    
+    wh.load_warehouse(filename)
+    # first test
+    t0 = time.time()
+    try:
+        answer, cost = solve_weighted_sokoban(wh)
+    except ValueError:
+        return print("Impossible")
+    
+    t1 = time.time()
+    print('<<  test_solve_weighted_sokoban >>')
+    if answer==expected_answer:
+        print(' Answer as expected!  :-)\n')
+    else:
+        print('unexpected answer!  :-(\n')
+        print('Expected ');print(expected_answer)
+        print('But, received ');print(answer)
+        print('Your answer is different but it might still be correct')
+        print('Check that you pushed the right box onto the left target!')
+    print(f'Your cost = {cost}, expected cost = {expected_cost}')
+    print ('It took {:.6f} seconds'.format(t1-t0))
+    print("")
+
+
+# ONLY FOR TEST
+def test_solve_weighted_sokoban_all():
+    """
+    Test for solve_weighted_sokoban()
+    Testing for all warehouses by Automatic Timeout"""
+
+    createFolder('./Warehouse_solutions')
+
+    directory = os.path.join(os.getcwd(),"warehouses")
+
+    counts = 1
+
+    with open("./Warehouse_solutions/overall.csv", "a+") as file:
+        file.write("case,time,cost\n")
+        file.close()
+
+    for filename in os.listdir(directory):
+        if filename.endswith(".txt"):
+            print("Start test case " + filename +  " in {} of 108".format(counts))
+            p = Process(target=warehouse_solution, args=(os.path.join(directory, filename),))
+            p.start()
+
+            # Wait for 300 seconds or until process finishes
+            p.join(300)
+
+            if p.is_alive():
+                with open("./Warehouse_solutions/outtime.txt", 'a+') as file:
+                    file.write(filename+"\n")
+                    file.close()
+                print("Test case {} is timeout.".format(counts))
+                # Terminate - may not work if process is stuck for good
+                p.terminate()
+                # OR Kill - will work for sure, no chance for process to finish nicely however
+                # p.kill()
+            
+            counts += 1
+            
+        else:
+            continue
+    
+    print("Finish All Tests")
+
+
+if __name__ == "__main__":
+    # ONLY FOR TEST
+
+    test_taboo_cells("./warehouses/warehouse_01.txt", '####  \n#X #  \n#  ###\n#   X#\n#   X#\n#XX###\n####  ') 
+    test_taboo_cells("./warehouses/warehouse_25.txt", " ####  \n #XX###\n #   X#\n##   X#\n#X   X#\n#XXX###\n#####  ") 
+    test_taboo_cells("./warehouses/warehouse_81.txt", " #####\n #XXX#\n #  X#\n##  X#\n#X  ##\n#X  ##\n##  X#\n #XXX#\n #####") 
+
+    test_check_elem_action_seq()
+
+    print("Testing 8a")
+    test_solve_weighted_sokoban("./warehouses/warehouse_8a.txt",
+                                ['Up', 'Left', 'Up', 'Left', 'Left', 'Down', 'Left', 
+                                'Down', 'Right', 'Right', 'Right', 'Up', 'Up', 'Left', 
+                                'Down', 'Right', 'Down', 'Left', 'Left', 'Right', 
+                                'Right', 'Right', 'Right', 'Right', 'Right', 'Right'],
+                                431
+                                )
+                                
+    print("Testing 09")
+    test_solve_weighted_sokoban("./warehouses/warehouse_09.txt",
+    ['Up', 'Right', 'Right', 'Down', 'Up', 'Left', 'Left', 'Down', 'Right', 'Down', 'Right', 'Left', 'Up', 'Up', 'Right', 'Down', 'Right', 'Down', 'Down', 'Left', 'Up', 'Right', 'Up', 'Left', 'Down', 'Left', 'Up', 'Right', 'Up', 'Left'],
+                                396 
+                                )
+    print("Testing 47")
+    test_solve_weighted_sokoban("./warehouses/warehouse_47.txt",
+    ['Right', 'Right', 'Right', 'Up', 'Up', 'Up', 'Left', 'Left', 'Down', 'Right', 'Right', 'Down', 'Down', 'Left', 'Left', 'Left', 'Left', 'Up', 'Up', 'Right', 'Right', 'Up', 'Right', 'Right', 'Right', 'Right', 'Down', 'Left', 'Up', 'Left', 'Down', 'Down', 'Up', 'Up', 'Left', 'Left', 'Down', 'Left', 'Left', 'Down', 'Down', 'Right', 'Right', 'Right', 'Right', 'Right', 'Right', 'Down', 'Right', 'Right', 'Up', 'Left', 'Left', 'Left', 'Left', 'Left', 'Left', 'Down', 'Left', 'Left', 'Up', 'Up', 'Up', 'Right', 'Right', 'Right', 'Up', 'Right', 'Down', 'Down', 'Up', 'Left', 'Left', 'Left', 'Left', 'Down', 'Down', 'Down', 'Right', 'Right', 'Up', 'Right', 'Right', 'Left', 'Left', 'Down', 'Left', 'Left', 'Up', 'Right', 'Right'],
+    179)
+
+    print("Testing 81")
+    test_solve_weighted_sokoban("./warehouses/warehouse_81.txt",
+    ['Left', 'Up', 'Up', 'Up', 'Right', 'Right', 'Down', 'Left', 'Down', 'Left', 'Down', 'Down', 'Down', 'Right', 'Right', 'Up', 'Left', 'Down', 'Left', 'Up', 'Right', 'Up', 'Up', 'Left', 'Left', 'Down', 'Right', 'Up', 'Right', 'Up', 'Right', 'Up', 'Up', 'Left', 'Left', 'Down', 'Down', 'Right', 'Down', 'Down', 'Left', 'Down', 'Down', 'Right', 'Up', 'Up', 'Up', 'Down', 'Left', 'Left', 'Up', 'Right'],
+    376)
+
+    # test all warehouses for solve_weighted_sokoban()
+    test_solve_weighted_sokoban_all()

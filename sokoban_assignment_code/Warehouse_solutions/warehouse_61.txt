@@ -1,0 +1,4 @@
+The solution for warehouse warehouse_61.txt is 
+ ['Left', 'Down', 'Down', 'Left', 'Down', 'Down', 'Right', 'Right', 'Up', 'Left', 'Down', 'Left', 'Up', 'Right', 'Up', 'Up', 'Up', 'Right', 'Up', 'Up', 'Left', 'Left', 'Left', 'Left', 'Left', 'Down', 'Down', 'Down', 'Down', 'Down', 'Right', 'Right', 'Right', 'Down', 'Right', 'Up', 'Up', 'Up', 'Down', 'Down', 'Left', 'Left', 'Left', 'Left', 'Up', 'Up', 'Up', 'Up', 'Up', 'Right', 'Right', 'Right', 'Right', 'Right', 'Down', 'Down', 'Left', 'Left', 'Right', 'Down', 'Down', 'Down', 'Left', 'Left', 'Up', 'Right', 'Down', 'Right', 'Up', 'Up', 'Down', 'Left', 'Left', 'Down', 'Left', 'Left', 'Up', 'Up', 'Up', 'Up', 'Up', 'Right', 'Right', 'Right', 'Right', 'Right', 'Down', 'Down', 'Left', 'Down', 'Down', 'Down', 'Right', 'Right', 'Up', 'Left', 'Down', 'Left', 'Up', 'Up']
+The cost is 100
+It took 117.025001 seconds

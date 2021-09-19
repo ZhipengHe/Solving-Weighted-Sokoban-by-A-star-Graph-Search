@@ -1,4 +1,4 @@
 The solution for warehouse warehouse_03_impossible.txt is 
  Impossible
 The cost is None
-It took 0.031998 seconds
+It took 0.028997 seconds

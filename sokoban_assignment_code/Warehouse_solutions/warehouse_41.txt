@@ -1,0 +1,4 @@
+The solution for warehouse warehouse_41.txt is 
+ ['Up', 'Right', 'Down', 'Up', 'Right', 'Right', 'Down', 'Left', 'Right', 'Right', 'Down', 'Down', 'Left', 'Up', 'Right', 'Up', 'Up', 'Left', 'Left', 'Down', 'Right', 'Up', 'Right', 'Down', 'Left', 'Left', 'Up', 'Left', 'Left', 'Down', 'Right', 'Right', 'Right', 'Down', 'Right', 'Left', 'Down', 'Left', 'Left', 'Up', 'Left', 'Up', 'Right', 'Right', 'Up', 'Right', 'Down', 'Up', 'Right', 'Down']
+The cost is 50
+It took 30.654183 seconds

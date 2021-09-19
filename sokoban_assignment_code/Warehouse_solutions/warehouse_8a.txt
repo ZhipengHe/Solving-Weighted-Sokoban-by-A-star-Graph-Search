@@ -1,0 +1,4 @@
+The solution for warehouse warehouse_8a.txt is 
+ ['Left', 'Left', 'Up', 'Up', 'Left', 'Down', 'Left', 'Down', 'Right', 'Right', 'Right', 'Right', 'Up', 'Left', 'Left', 'Up', 'Left', 'Down', 'Right', 'Down', 'Left', 'Right', 'Right', 'Right', 'Right', 'Right', 'Right', 'Right']
+The cost is 433
+It took 0.408003 seconds

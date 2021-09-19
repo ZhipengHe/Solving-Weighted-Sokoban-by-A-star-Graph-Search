@@ -1,4 +1,4 @@
 The solution for warehouse warehouse_11.txt is 
  ['Up', 'Left', 'Left', 'Left', 'Down', 'Down', 'Down', 'Down', 'Right', 'Right', 'Right', 'Right', 'Up', 'Left', 'Up', 'Left', 'Down', 'Right', 'Down', 'Left', 'Left', 'Left', 'Up', 'Up', 'Up', 'Up', 'Right', 'Right', 'Right', 'Down', 'Down', 'Down', 'Left', 'Down', 'Left', 'Left', 'Up', 'Left', 'Left', 'Down', 'Down', 'Right', 'Up', 'Left', 'Up', 'Right', 'Down', 'Right', 'Right', 'Right', 'Up', 'Right', 'Right', 'Down', 'Left', 'Left', 'Left', 'Left', 'Up', 'Left', 'Left', 'Down', 'Down', 'Right', 'Up', 'Right', 'Right', 'Right', 'Up', 'Up', 'Right', 'Up', 'Up', 'Left', 'Left', 'Left', 'Down', 'Down']
 The cost is 78
-It took 1.364185 seconds
+It took 1.266001 seconds
